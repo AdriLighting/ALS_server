@@ -96,6 +96,7 @@
 				if (wifi_connect_result("")) { 													// STA ...
 					_timerEventSetupMod = 0;
 					_timerEventSetup->activate();
+					ALS_lampsettingLog_restore();
 					fsprintf("\n[0][_timerEventSetup] : %d\n", _timerEventSetupMod);
 				} else { 																		// AP 
 					fsprintf("\n[1][_timerEventSetup] : %d\n", _timerEventSetupMod);
@@ -146,19 +147,26 @@
 
 							fsprintf("[envent_setup]\n");
 							envent_setup();
+
 							fsprintf("[checkConnected_start]");
 							_ALS_wifi->_checkConnected_start();
 
 						   	String timeStr;
-							_ALS_wifi->ntpTime_getTime(timeStr);	
+						   	_ALS_wifi->ntpTime_getTime(timeStr);
+						   	int wD, sMon, sYear;
+						   	adri_timeNtp_instance()->dateGet(wD, sMon, sYear);
+						   	String timeStamp = String(wD)+"/"+String(sMon)+"/"+String(sYear)+"_"+timeStr;
+
 							String logStr = "";
 							adri_toolsPtr_get()->log_read 	(logStr, false);
-							adri_toolsPtr_get()->log_write 	(logStr, timeStr);
-							adri_toolsPtr_get()->log_read 	(logStr, true);								
+							adri_toolsPtr_get()->log_write 	(logStr, timeStamp);
+
+							delay(1000);
 						}
 						if (_ALS_wifi->_eventModStart == 1) {
 							event_loop();						
-						}	
+						}
+
 					} else {
 						if (_ALS_wifi->_eventModStart == 0) {
 							_ALS_wifi->_eventModStart 	= -1; 

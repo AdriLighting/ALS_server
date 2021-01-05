@@ -35,7 +35,7 @@ namespace {
 
 alarmClock * alarmClock_array[EVENT_MAX];
 
-void lightOnOff_start(){
+void lightOnOff_start(String opt){
 	// fsprintf("\n[lightOn_start]\n");	
 	// lampSettingInstance()->_lamp_on = true;
 	// lampSettingInstance()->effect_color();
@@ -46,7 +46,7 @@ void lightOnOff_start(){
 	// lampServer_instance()->udpmultiserver_instance()->send(rep);
 	// lampSettingInstance()->savRequiered_effect();
 }
-void lightOnOff_end(){
+void lightOnOff_end(String opt){
 	// fsprintf("\n[lightOff_start]\n");	
 	// lampSettingInstance()->_lamp_on = false;
 	// uint8_t pos = effect_manager_instance()->activeEffectIndex();
@@ -58,13 +58,14 @@ void lightOnOff_end(){
 	// lampServer_instance()->udpmultiserver_instance()->send(rep);
 	// lampSettingInstance()->savRequiered_effect();		
 }
-void lightOnOff_loop(){}
+void lightOnOff_loop(String opt){}
+
 PROGMEM alarmClock_action alarmClockAction_end[] = {   
 	{1, lightOnOff_start, lightOnOff_end, lightOnOff_loop}
 };
 
 
-void lightOn_start(){
+void lightOn_start(String opt){
 	String rep;
 	programmeLoop_instance()->patternLoop_play_set(false);
 	if (!ALS_lampsettingPtr_get()->_lamp_on) ALS_lampsettingPtr_get()->_lamp_on = true;
@@ -74,7 +75,7 @@ void lightOn_start(){
 	ALS_udpServer_get()->udp_send(rep);
 	ALS_udpServer_get()->udpMulti_send(rep);	
 }
-void lightOff_start(){
+void lightOff_start(String opt){
 	String rep;
 	ALS_lampsettingPtr_get()->_lamp_on = false;	
 	ALS_fnc_lampClear();
@@ -83,9 +84,22 @@ void lightOff_start(){
 	ALS_udpServer_get()->udpMulti_send(rep);
 	ALS_lampsettingPtr_get()->currentSetting_jsonFile();
 }
+void effect_start(String opt){
+	int 	p_pos 		= -1;
+	String 	rep			= "";
+	if (ALS_lampsettingPtr_get()->patternList_changeByName(opt, p_pos)){
+		if (!ALS_lampsettingPtr_get()->_lamp_on) ALS_lampsettingPtr_get()->_lamp_on = true;
+		programmeLoop_instance()->patternLoop_play_set(false);
+		ALS_lampUpdateClientPtr_get()->android_generalSetting(rep);
+		ALS_udpServer_get()->udp_send(rep);
+		ALS_udpServer_get()->udpMulti_send(rep);
+		ALS_lampsettingPtr_get()->currentSetting_jsonFile();
+	}	
+}
 PROGMEM alarmClock_action alarmClockAction_start [] = {   
 	{1, lightOn_start, 	NULL, NULL},
-	{2, lightOff_start, NULL, NULL}
+	{2, lightOff_start, NULL, NULL},
+	{3, effect_start, 	NULL, NULL}
 
 };
 
@@ -106,7 +120,7 @@ void alarmClock::start(){
 
 	alarmClock_func func = list[_pos-1].start;
 
-	if (func!=NULL)(*func)();
+	if (func!=NULL)(*func)(_option_1);
 }
 void alarmClock::end(){
 	if (_pos <= 0 ) return;
@@ -122,7 +136,7 @@ void alarmClock::end(){
 	
 	alarmClock_func func = list[_pos-1].end;
 
-	if (func!=NULL)(*func)();
+	if (func!=NULL)(*func)(_option_1);
 }
 
 alarmclock_current alarmclockCurrent;
@@ -130,7 +144,7 @@ alarmclock_current::alarmclock_current(){
 
 }
 
-int envent_setup_ready 	= 0;
+boolean envent_setup_ready 	= false;
 int appi_event_select 	= 0;
 
 calendar * event_espReset;
@@ -146,8 +160,6 @@ PROGMEM events_spiff events_spiff_list [] = {
 	{"Vendredi", 		"-1", 	"3600",		"180", 	"28800", 	6, 		8},
 	{"Samedi", 			"-1", 	"3600",		"180", 	"28800", 	7, 		8},
 
-	// {"Journalier_1", 	"-1", 	"3600", 	"180", 	"28800", 	0, 		3},
-	// {"Journalier_2", 	"-1", 	"3600", 	"180", 	"28800", 	0, 		3},
 
 	{"Journalier_4", 	"-1", 	"3600",		"180", 	"28800", 	0, 		9},
 	{"Journalier_5", 	"-1", 	"2200",		"180", 	"28800", 	0, 		9},
@@ -156,8 +168,6 @@ PROGMEM events_spiff events_spiff_list [] = {
 	{"Journalier_7", 	"-1", 	"-1", 		"180", 	"28800", 	0, 		2},
 	{"Journalier_8", 	"-1", 	"-1", 		"180", 	"28800", 	0, 		2},
 	{"Journalier_9", 	"-1", 	"-1", 		"180", 	"28800", 	0, 		2},
-	{"Journalier_10", 	"-1", 	"-1", 		"180", 	"28800", 	0, 		2},
-	{"Journalier_11", 	"-1", 	"-1", 		"180", 	"28800", 	0, 		2},
 
 
 	// 
@@ -180,12 +190,16 @@ String   events_toSpiff_enabled(calendar * obj){
 	return String(obj->isEnabled);
 
 }
+String   events_toSpiff_period(calendar * obj){
+	return calendar_period_to_string(obj->period);
+}
 
 PROGMEM events_toSpiff events_toSpiff_list [] = { 
 	{"lapse" , 	events_toSpiff_lapse},
 	{"repeat" , events_toSpiff_repeat},
 	{"value" , 	events_toSpiff_value},
 	{"activ" , 	events_toSpiff_enabled},
+	{"period" ,	events_toSpiff_period},
 	// {"buzzer" , events_toSpiff_buzzer},
 };
 int events_toSpiff_list_count = ARRAY_SIZE(events_toSpiff_list);
@@ -234,7 +248,7 @@ boolean events_fromJson(){
 	int 		search_day;
 	boolean 	enabled;
 
-	DynamicJsonDocument buff(2000);
+	DynamicJsonDocument buff(4500);
 	DeserializationError err;
 
     File file = SPIFFS.open("/json/events.json", "r");
@@ -328,11 +342,14 @@ void envent_setup() {
 }
 
 void alarmClock::jsonOject(JsonObject & object){
-	object[F("action_id")] = _pos;
+	object[F("action_id")] 	= _pos;
+	object[F("option_1")] 	= _option_1;
 }
 void alarmClock::fromJson(JsonObject object){
-	String 	value 	= object[F("action_id")].as<String>();
-			_pos	= value.toInt();
+	String 	value 		= object[F("action_id")].as<String>();
+			_pos		= value.toInt();
+			value 		= object[F("option_1")].as<String>();
+			_option_1	= value;			
 }
 
 void event_update_lbl(calendar * cEvent, String *s_period, String *startTime, String *s_triggerNext, String *s_repeatValue, String *s_endValue);
@@ -372,6 +389,7 @@ void events_jsonFile() {
     if (file) {
 		DynamicJsonDocument json(serializeSize);
 		JsonObject 	root 	= json.to<JsonObject>();
+		root["selected"] 	= ch_toString(events_spiff_list[appi_event_select]._id);
 		JsonObject 	object 	= root.createNestedObject("eventslist");
 		events_jsonObject(object);
 		serializeJson(json, file);
@@ -462,6 +480,7 @@ boolean eventsDetails_jsonObject(int sSelect, JsonObject & objectId) {
 	objectId[F("duration")] 	= timer_toString(calendar_array[sSelect]->o_endValue);
 	objectId[F("activate")] 	= String(calendar_array[sSelect]->isEnabled);
 	objectId[F("action")] 		= String(alarmClock_array[sSelect]->_pos);
+	objectId[F("option_1")] 	= alarmClock_array[sSelect]->_option_1;
 
 	return true;	
 }
@@ -527,12 +546,12 @@ void appi_event_select_set_times(String Value, int mod) {
 		repeat 		= calendar_array[pos]->repeat;
 		startTime 	= calendar_array[pos]->startTime;
 
+		if (t>startTime) t = t - startTime;
 
 		calendar_edit(calendar_array[pos], startTime, repeat, t, calendar_array[pos]->isEnabled);
 		// screen_alarmClock_edit(false);
 	}	
 	if (mod == 2) {
-
 		endValue 	= calendar_array[pos]->o_endValue;
 		startTime 	= calendar_array[pos]->startTime;
 
@@ -540,7 +559,7 @@ void appi_event_select_set_times(String Value, int mod) {
 		// screen_alarmClock_edit(false);
 	}
 
-	events_jsonFile();
+	// events_jsonFile();
 	// events_sav_toSpiff();	
 }
 
@@ -550,7 +569,7 @@ void appi_event_select_activate(){
 
 	calendar_array[appi_event_select]->isEnabled = !calendar_array[appi_event_select]->isEnabled;
 
-	events_jsonFile();
+	// events_jsonFile();
 
 
 }
@@ -564,8 +583,11 @@ void appi_event_select_setNextDay(){
 }
 
 
-void appi_event_select_action(int value){ 
-	alarmClock_array[appi_event_select]->_pos = value;
+void appi_event_select_action(String value){ 
+	alarmClock_array[appi_event_select]->_pos = value.toInt();
+}
+void appi_event_select_actionEffect(String value){ 
+	alarmClock_array[appi_event_select]->_option_1 = value;
 }
 
 
@@ -576,19 +598,22 @@ void event_loop(){
 }
 
 
-void calendarPrint_all(){
+void appi_events_print(String & ret){
+
+
+
 	for( int i = 0; i < calendar_number_of_event; i++) { 
 
 		if (calendar_array[i] == NULL) continue;
 		if (!calendar_array[i]->isEnabled) continue;
-		if (calendar_array[i]->period == dtWeeklyRepeatAlarm) {
-		    char* cDay = dayStr(weekday());
-		    String search_day = calendar_date_get_dowStr("en", String(cDay)); 
-		    if (search_day != "") {
-		    	if (calendar_array[i]->name != search_day) continue;
-		    }			
-		}
-		calendarPrint_0(calendar_array[i]->pos, i);
+		// if (calendar_array[i]->period == dtWeeklyRepeatAlarm) {
+		//     char* cDay = dayStr(weekday());
+		//     String search_day = calendar_date_get_dowStr("en", String(cDay)); 
+		//     if (search_day != "") {
+		//     	if (calendar_array[i]->name != search_day) continue;
+		//     }			
+		// }
+		calendarPrint_f(calendar_array[i]->pos, i, ret);
 
 
 	}

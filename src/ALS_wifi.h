@@ -47,8 +47,11 @@
 		int 	_connectMod_get 	();	
 		void 	_hostname_get 		(String & ret);	
 		void 	_otaEnabled_set 	(boolean ret);			
+		boolean _setupFromSpiff		();
 		boolean _setup 				(WIFICONNECT_MOD cMod = AWC_SETUP, WIFICONNECTSSID_MOD sMod = AWCS_NORMAL);
-		boolean _connect 			(WIFICONNECT_MOD cMod, WIFICONNECTSSID_MOD sMod);
+		boolean _setupAp			(WIFICONNECT_MOD cMod = AWC_SETUP, WIFICONNECTSSID_MOD sMod = AWCS_NORMAL);
+		boolean _connect 			(WIFICONNECT_MOD cMod);
+		boolean _connectFromSpiff	();
 		void 	_loop 				();
 
 		void 	_checkConnected_start 	();

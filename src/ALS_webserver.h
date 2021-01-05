@@ -2,6 +2,7 @@
 	#define ALS_WEBSERVER_H
 	#include <adri_udp.h>
 	#include <adri_tools.h>
+	#include "ALS_wifi.h"
 
 	void parse(String msg);
 	void parse_multi(String msg);	
@@ -54,14 +55,17 @@
 		}
 		void udpMulti_send(String msg){
 			if (ALS_udpMulti==nullptr) return;
-		 //    String hostname;
-		 //    lampServer_instance()->wifi_instance()->_hostname_get(hostname);
+		    String hostname;
+		    ALS_wifiPtr_get()->_hostname_get(hostname);
 
-			// String host = literal_item("host", 	hostname);
-			// String from	= literal_item("from", 	"server");
-			// msg 		= literal_item("msg", 	msg);
+	Serial.printf("\n[udpMulti_send]\n\tme: %s\n%s\n",
+	 hostname.c_str(), msg.c_str());
 
-			// ALS_udpMulti->send(host+from+msg);
+			String host = literal_item("host", 	hostname);
+			String from	= literal_item("from", 	"server");
+			msg 		= literal_item("msg", 	msg);
+
+			ALS_udpMulti->send(host+from+msg);
 
 		}
 

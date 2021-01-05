@@ -62,7 +62,9 @@
 				// boolean effect = false;
 		    };		
 			adri_timer 			* saveRequiered_timer;
-			uint32_t 			saveRequiered_timerDelay 	= 1000;
+			adri_timer 			* saveRequieredLogCmd_timer;
+			uint32_t 			saveRequiered_timerDelay 		= 1000;
+			uint32_t 			saveRequieredLogCmd_timerDelay 	= 1000;
 			uint8_t 			saveRequiered_mod 			= 0;
 		public:
 			programmSetting 	* _prog;
@@ -75,6 +77,7 @@
 
 			void savRequiered_pattern 	() ;
 			void savRequiered_effect 	() ;
+			void savRequiered_logCmd 	() ;
 			void loop 					() ;
 
 			void 	currentSetting_jsonFile 	();	
@@ -167,21 +170,21 @@
 		void loop();
 		
 		void button_tw_create(
-			int pin,
+			int 	pin,
 			boolean pullup, 
-			int input, 
-			int delay
+			int 	input, 
+			int 	delay
 		);	
 		void button_hue_create(
-			int pin,
+			int 	pin,
 			boolean pullup, 
-			int input, 
-			int delay
+			int 	input, 
+			int 	delay
 		);	
 		void button_onOff_create(
-			int pin,
+			int 	pin,
 			boolean pullup, 
-			int input 
+			int 	input 
 		);						
 		void button_setFunc(int bt, click_func f1, click_func f2) ;	
 
@@ -200,6 +203,17 @@
 	adriOled1306_driver * myOledInstance();
 	lampPeripherals 	* lampPeripheralsInstance();
 
+class ALS_lampsettingLog
+{
 
+public:
+	String 	_op 	= "";
+	int 	_cnt 	= 1;	
 
+	ALS_lampsettingLog(String op);
+	ALS_lampsettingLog(String op, int cnt);
+	~ALS_lampsettingLog(){};
+};
+void ALS_lampsettingLog_print();
+void ALS_lampsettingLog_restore();
 #endif

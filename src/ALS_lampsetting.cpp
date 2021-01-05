@@ -222,12 +222,20 @@ ALS_lampsetting * ALS_lampsettingPtr;
 ALS_lampsetting * ALS_lampsettingPtr_get() {return ALS_lampsettingPtr;}
 ALS_lampsetting::ALS_lampsetting(){
 	ALS_lampsettingPtr = this;
-	_prog = new programmSetting();
-	saveRequiered_timer = new adri_timer(saveRequiered_timerDelay, "", false);
+	_prog 						= new programmSetting();
+	saveRequiered_timer 		= new adri_timer(saveRequiered_timerDelay, 			"", false);
+	saveRequieredLogCmd_timer 	= new adri_timer(saveRequieredLogCmd_timerDelay, 	"", false);
 }
 
 void ALS_lampsetting::loop() {
+	if (saveRequieredLogCmd_timer->isActivate()) {
+		if (saveRequieredLogCmd_timer->loop(saveRequieredLogCmd_timerDelay)) {
+			ALS_lampsettingLog_print();
+			saveRequieredLogCmd_timer->activate(false);
+		}
+	}	
 	if (saveRequiered_timer->isActivate()) {
+
 
 		if (saveRequiered_timer->loop(saveRequiered_timerDelay)) {
 
@@ -290,6 +298,21 @@ void ALS_lampsetting::savRequiered_effect() {
 	} else {
 		saveRequiered_timerDelay=3000;
 		saveRequiered_timer->activate();
+	}
+}
+void ALS_lampsetting::savRequiered_logCmd() {
+	
+	if (saveRequieredLogCmd_timer->isActivate()) {
+		saveRequieredLogCmd_timerDelay+=150;
+		if (saveRequieredLogCmd_timerDelay>30000){
+			saveRequieredLogCmd_timerDelay=3000;
+			#ifdef DEBUG
+				fsprintf("\n[lampSetting::savRequiered_logCmd] RESETTIMER\n");
+			#endif
+		}
+	} else {
+		saveRequieredLogCmd_timerDelay=3000;
+		saveRequieredLogCmd_timer->activate();
 	}
 }
 
@@ -597,6 +620,12 @@ void ALS_lampUpdateClient::android_generalSetting(String & out, String txt) {
 	object[F("lp")] 		= String(_lampSetting->_lamp_on);
 	object[F("bri")] 		= String(_lampSetting->_lamp_bri);
 
+	object = root.createNestedObject("wifiid");
+	object[F("sta_ssid")]	= wifiConnect_instance()->staSsid_get();
+	object[F("sta_psk")]	= wifiConnect_instance()->staPsk_get();
+	object[F("sta_pos")]	= wifiConnect_instance()->credential_sta_pos_get();
+	object[F("co_ssid")]	= wifiConnect_instance()->connectSSID_get();
+
 	serializeJson(json, out);	
 	#ifdef DEBUG
 		serializeJson(json, Serial);
@@ -694,6 +723,7 @@ void ALS_lampUpdateClient::httpPage_wifi(){
 		
 	ALS_espwebserverPtr_get()->http_sendJson(rep);
 }
+
 void ALS_lampUpdateClient::httpPage_json(){
 
 	String rep = "";
@@ -854,27 +884,22 @@ void parse_screen_initialize(String url){
 	}
 	switch(pos) {
 		case 0:
-			ALS_lampUpdateClientPtr_get()->android_generalSetting(rep, "Bienvenue");
+			ALS_lampUpdateClientPtr_get()->android_generalSetting(rep, "");
 			ALS_udpServer_get()->udp_send(rep);
 			ALS_udpServer_get()->udpMulti_send(rep);
 		break;
 
 		case 1: 
-			ALS_lampUpdateClientPtr_get()->android_generalSetting(rep, "Bienvenue");
+			ALS_lampUpdateClientPtr_get()->android_generalSetting(rep, "");
 			ALS_udpServer_get()->udp_send(rep);
 			ALS_udpServer_get()->udpMulti_send(rep);
 		break;
 	}
 }
 
-const char PROGMEM req_general_lpOn [] = "lp_on";
-const char PROGMEM req_general_bri 	[] = "bri";
 int command_lampOn(String value){
 	ALS_lampsettingPtr_get()->_lamp_on 	= !ALS_lampsettingPtr_get()->_lamp_on;
-	// fsprintf("\n[_lamp_on]\n\t%d\n", ALS_lampsettingPtr_get()->_lamp_on);
 	if (!ALS_lampsettingPtr_get()->_lamp_on){
-		// uint8_t pos = effect_manager_instance()->activeEffectIndex();
-		// effect_manager_sav(pos);	
 		ALS_fnc_lampClear();
 	} else {
 		effectIdInstance()->loadSettingFromFile("/effectsSetting/");
@@ -886,119 +911,70 @@ int command_lampBri(String value){
 	ALS_lampsettingPtr_get()->_lamp_bri 	= value.toInt();
 	ALS_fnc_lampBri(value.toInt());
 }
-const char PROGMEM req_general_autoplay 	[] = "autoplay";
 int command_lampAutoPLay(String value){
 	programmeLoop_instance()->patternLoop_autoPlay();
-	// ALS_lampsettingPtr_get()->currentSetting_jsonFile();
 }
-const char PROGMEM req_general_autoplay_rnd	[] = "autoplay_rnd";
 int command_lampAutoPLaRnd(String value){
 	programmeLoop_instance()->patternLoop_autoPlayRnd();
-	// ALS_lampsettingPtr_get()->currentSetting_jsonFile();
 }
-const char PROGMEM req_general_autoplay_delay 	[] = "autoplay_delay";
 int command_lampAutoPLayDelay(String value){
 	programmeLoop_instance()->patternLoop_delayCurrent_set(value.toInt());
-	// ALS_lampsettingPtr_get()->currentSetting_jsonFile();
 }
-const char PROGMEM req_general_eff_next 	[] = "eff_next";
 int command_lamp_effNext(String value){
 	String name;
 	programmeLoop_instance()->pattern_list_changeEffect(true, name);
 	effect_manager_instance()->changeEffectByName(name);
-	// ALS_lampsettingPtr_get()->currentSetting_jsonFile();
 }
-const char PROGMEM req_general_eff_prev 	[] = "eff_prev";
 int command_lamp_effPrev(String value){
 	String name;
 	programmeLoop_instance()->pattern_list_changeEffect(false, name);
 	effect_manager_instance()->changeEffectByName(name);
-	// ALS_lampsettingPtr_get()->currentSetting_jsonFile();		
 }
-
-
-const char PROGMEM req_general_wifi 	[] = "wifi";
-int command_wifiId(String value){
-	ALS_lampUpdateClientPtr_get()->httpPage_wifi();
-}
-const char PROGMEM req_general_json 	[] = "json";
-int command_json(String value){
-	ALS_lampUpdateClientPtr_get()->httpPage_json();
-}
-const char PROGMEM req_general_effectSettingMod 	[] = "effectSettingMod";
-int command_general_effectSettingMod(String value){
-	
-}
-
-const char PROGMEM req_general_ecColor		[] = "ec_color";
-const char PROGMEM req_general_ecTw			[] = "ec_tw";
-const char PROGMEM req_general_ecRnd		[] = "ec_rnd";
 int command_general_ecColor(String value){
 	if (!ALS_lampsettingPtr_get()->_lamp_on) ALS_lampsettingPtr_get()->_lamp_on = true;
 
 	ALS_lampsettingPtr_get()->effect_color();
 	if (value != "") effectIdInstance()->settingFromSerial(ch_toString(settingEffectKey_isTw), "0", true);	
-	
-	// String rep = "";	
-	// ALS_lampUpdateClientPtr_get()->android_generalSetting(rep, "");
-	// ALS_udpServer_get()->udp_send(rep);
-	// ALS_udpServer_get()->udpMulti_send(rep);
-	
-	// ALS_lampsettingPtr_get()->currentSetting_jsonFile();
-	// uint8_t pos = effect_manager_instance()->activeEffectIndex();
-	// effect_manager_sav(pos);
 }
 int command_general_ecTw(String value){
 	if (!ALS_lampsettingPtr_get()->_lamp_on) ALS_lampsettingPtr_get()->_lamp_on = true;
 
 	ALS_lampsettingPtr_get()->effect_color();
 	if (value != "") effectIdInstance()->settingFromSerial(ch_toString(settingEffectKey_isTw), "1", true);	
-	
-	// String rep = "";		 	
-	// ALS_lampUpdateClientPtr_get()->android_generalSetting(rep, "");
-	// ALS_udpServer_get()->udp_send(rep);
-	// ALS_udpServer_get()->udpMulti_send(rep);
-
-	// ALS_lampsettingPtr_get()->currentSetting_jsonFile();
-	// uint8_t pos = effect_manager_instance()->activeEffectIndex();
-	// effect_manager_sav(pos);	
 }
 int command_general_ecRnd(String value){
 	if (!ALS_lampsettingPtr_get()->_lamp_on) ALS_lampsettingPtr_get()->_lamp_on = true;
 	String name = "";
    	programmeLoop_instance()->patternList_randomEffect(name);
    	effect_manager_instance()->changeEffectByName(name);
-
-	// String rep = "";	
-	// ALS_lampUpdateClientPtr_get()->android_generalSetting(rep, "");
-	// ALS_udpServer_get()->udp_send(rep);
-	// ALS_udpServer_get()->udpMulti_send(rep);
-
-	// ALS_lampsettingPtr_get()->currentSetting_jsonFile();
-	// uint8_t pos = effect_manager_instance()->activeEffectIndex();
-	// effect_manager_sav(pos);	
 }
+int command_general_paletteNext(String value){
+	effect_id * eff = effectIdInstance();
+	String str;
+	eff->settingGetValueByKey(settingEffectKey_paletteMod, str) ;
+	PALETTE_MODS mod = are_paletteModFromString(str.toInt());
+	if (value!="") 	RGBeffecPalette_ptr_get()->myPalette_next(mod,false);
+	else 			RGBeffecPalette_ptr_get()->myPalette_prev(mod,false);
+	// fsprintf("\n[command_general_paletteNext] [%s]\n",str.c_str());
+}
+
 requestCommandsLists requestCommandsList [] = {
-	{req_general_lpOn,		command_lampOn,			"", NULL, 	0},
-	{req_general_bri,		command_lampBri,		"", NULL, 	0},
+	// UDP
+	{"lp_on",		command_lampOn,			"", NULL, 	0},
+	{"bri",			command_lampBri,		"", NULL, 	0},
 
-	{req_general_wifi,		command_wifiId,			"", NULL, 	0},
-	{req_general_json,		command_json,				"", NULL, 	0},
+	{"ec_color",		command_general_ecColor,	"", NULL, 	0},
+	{"ec_tw",			command_general_ecTw,		"", NULL, 	0},
+	{"ec_rnd",			command_general_ecRnd,		"", NULL, 	0},
 
-	{req_general_ecColor,		command_general_ecColor,	"", NULL, 	0},
-	{req_general_ecTw,			command_general_ecTw,		"", NULL, 	0},
-	{req_general_ecRnd,			command_general_ecRnd,		"", NULL, 	0},
-
-	{req_general_eff_next,			command_lamp_effNext,			"", NULL, 	0},
-	{req_general_eff_prev,			command_lamp_effPrev,			"", NULL, 	0},
-	{req_general_autoplay_delay,	command_lampAutoPLayDelay,		"", NULL, 	0},
-	{req_general_autoplay,			command_lampAutoPLay,			"", NULL, 	0},
-	{req_general_autoplay_rnd,		command_lampAutoPLaRnd,			"", NULL, 	0},
-
+	{"eff_next",			command_lamp_effNext,			"", NULL, 	0},
+	{"eff_prev",			command_lamp_effPrev,			"", NULL, 	0},
+	{"autoplay_delay",		command_lampAutoPLayDelay,		"", NULL, 	0},
+	{"autoplay",			command_lampAutoPLay,			"", NULL, 	0},
+	{"autoplay_rnd",		command_lampAutoPLaRnd,			"", NULL, 	0},
+	{"palette_next",		command_general_paletteNext,	"", NULL, 	0},
 };
 uint8_t requestCommandsListCount = ARRAY_SIZE(requestCommandsList);
-
-
 void parse_general(){
 	String cmd 		= "";
 	String value 	= "";	
@@ -1035,6 +1011,7 @@ void parse_general(){
 		// sprintf()
 		effect["value"] = delay;
 		serializeJson(json, rep);
+
 	} else {
 		ALS_lampUpdateClientPtr_get()->android_generalSetting(rep);
 	}
@@ -1042,18 +1019,138 @@ void parse_general(){
 	ALS_udpServer_get()->udpMulti_send(rep);
 
 	ALS_lampsettingPtr_get()->currentSetting_jsonFile();
-	// ALS_lampsettingPtr_get()->savRequiered_effect();
+	ALS_lampsettingPtr_get()->savRequiered_effect();
 	
 }
 
+
+int command_(String value){}
+int command_wifiId(String value){
+	ALS_lampUpdateClientPtr_get()->httpPage_wifi();
+}
+int command_json(String value){
+	ALS_lampUpdateClientPtr_get()->httpPage_json();
+}
+int command_log(String value){
+	if (value=="remove") {
+		SPIFFS.remove("/log.txt");
+		String result;
+		adri_toolsPtr_get()->log_read(result, true);		
+	}	
+	ALS_espwebserverPtr_get()->http_sendHtml("/log.txt");
+}
+int command_logAdd(String value){
+   	String timeStr;
+   	ALS_wifiPtr_get()->ntpTime_getTime(timeStr);
+   	int wD, sMon, sYear;
+   	adri_timeNtp_instance()->dateGet(wD, sMon, sYear);
+   	String timeStamp = String(wD)+"/"+String(sMon)+"/"+String(sYear)+"_"+timeStr;
+
+        char buffer[255];
+    	int freeHeap  = ESP.getFreeHeap();
+        sprintf(buffer, "%15s | %15d", value.c_str(), freeHeap);
+
+	String logStr;
+	adri_toolsPtr_get()->log_read(logStr, false);	
+	adri_toolsPtr_get()->log_write(logStr, timeStamp, String(buffer));		
+
+	ALS_espwebserverPtr_get()->http_sendHtml("/log.txt");
+}
+
+int command_event(String value){
+	if (value=="print") {
+	    File file = SPIFFS.open("/temp.txt", "w");
+	    if (file) {
+	    	String rep;
+	    	appi_events_print(rep);
+			file.print(rep);
+			file.close();
+			ALS_espwebserverPtr_get()->http_sendHtml("/temp.txt");
+	    }		
+	}
+}
+int command_ping(String value){
+	String rep = "";
+	DynamicJsonDocument json(serializeSize);
+	JsonObject root = json.to<JsonObject>();
+	root[F("ALS_SCAN")]	= wifiConnect_instance()->hostName_get();
+	root[F("IP")]		= wifiConnect_instance()->currentIp_get();
+	serializeJson(json, rep);	
+	ALS_espwebserverPtr_get()->http_sendJson(rep);
+}
+requestCommandsLists requestCommandsLogList [] = {
+	// HTTP
+	{"log_cmd",				command_,				"", NULL, 	0},
+	{"log",					command_log,			"", NULL, 	0},
+	{"log_add",				command_logAdd,			"", NULL, 	0},
+	{"ping",				command_ping,			"", NULL, 	0},
+
+	{"wifi",		command_wifiId,			"", NULL, 	0},
+	{"json",		command_json,			"", NULL, 	0},
+};
+uint8_t requestCommandsLogListtCount = ARRAY_SIZE(requestCommandsLogList);
+
+// void ALS_lampsettingLog_html(String & ret);
+// void setAboutScreen(String body){
+// String header;
+// 	header += 	"<!DOCTYPE html>";
+// 	header += 	"<html>";
+// 	header += 	  "<head>";
+// 	header += 	    "<meta http-equiv=\"content-type\" content=\"text/html; charset=UTF-8\">";
+// 	header += 	    "<title></title>";
+// 	header += 	  "</head>";
+// 	header += 	  "<body>";	
+// 	header += 	  body;	
+// 	header += 	    "</body>";
+// 	header += 	  "</html>";
+
+// }
+
+
+
+	int command_wifi_staSSID(String value) 	{wifiConnect_instance()->_credential_sta->ssid_set(value);	wifi_credential_sta_toSpiff(); wifi_credential_sta_print();}	
+	int command_wifi_staPsk(String value) 	{wifiConnect_instance()->_credential_sta->psk_set(value);	wifi_credential_sta_toSpiff(); wifi_credential_sta_print();}	
+	int command_wifi_sta(String value) 		{
+		wifiConnect_instance()->connect_set(AWC_LOOP);
+		wifiConnect_instance()->connectSSID_set(AWCS_NORMAL);	
+		wifiConnect_instance()->savToSpiff(); 
+		ESP.restart();
+	}	
+	int command_wifi_ap(String value) 		{
+		wifiConnect_instance()->connect_set(AWC_SETUP);
+		wifiConnect_instance()->connectSSID_set(AWCS_AP);		
+		wifiConnect_instance()->savToSpiff();
+		ESP.restart();
+	}	
+	requestCommandsLists requestEventCommandsListWifi [] = {
+		{"sta_ssid",		&command_wifi_staSSID,				"ALL", 			NULL, 	0},
+		{"sta_psk",			&command_wifi_staPsk,				"ALL", 			NULL, 	0},
+		{"co_sta",			&command_wifi_sta,				"ALL", 			NULL, 	0},
+		{"co_ap",			&command_wifi_ap,				"ALL", 			NULL, 	0},
+
+	};
+	uint8_t requestEventCommandsListWifiCount = ARRAY_SIZE(requestEventCommandsListWifi);
+	void parse_wifi(){
+		String cmd 		= "";
+		String value 	= "";	
+		String rep 		= "";	
+		ALS_lampUpdateClientPtr_get()->android_generalSetting(rep, "");
+		ALS_udpServer_get()->udp_send(rep);
+	}
+
+
+
 // #ifdef MRLCALENDAR
 	void parse_event(){
+		if(ALS_wifiPtr_get()->_eventModStart!=1)return;
+		
 		String cmd 		= "";
 		String value 	= "";	
 		String rep 		= "";	
 
 		ALS_lampUpdateClientPtr_get()->android_eventSelect(appi_event_select, rep);
 		ALS_udpServer_get()->udp_send(rep);
+		events_jsonFile();
 		
 	}
 	const char PROGMEM req_eventSelect 								[] = "eventSelect";
@@ -1063,13 +1160,15 @@ void parse_general(){
 	const char PROGMEM req_alarm_select_activate           			[] = "alarm_select_activate";
 	const char PROGMEM req_alarm_select_setNextDay           		[] = "alarm_select_setNextDay";
 	const char PROGMEM req_alarm_select_action           			[] = "alarm_select_action";
-	int command_eventSelect(String v) 					{event_getPosByName(v);}
-	int command_alarm_select_time(String value) 		{appi_event_select_set_times(value, 0);}
-	int command_alarm_select_duration(String value) 	{appi_event_select_set_times(value, 1);}
-	int command_alarm_select_repeat(String value) 		{appi_event_select_set_times(value, 2);}
-	int command_alarm_select_activate(String value) 	{appi_event_select_activate();}	
-	int command_alarm_select_setNextDay(String value) 	{appi_event_select_setNextDay();}	
-	int command_alarm_select_action(String value) 		{appi_event_select_action(value.toInt());}	
+	const char PROGMEM req_alarm_select_actionEffect          		[] = "alarm_select_actionEffect";
+	int command_eventSelect(String v) 					{if(ALS_wifiPtr_get()->_eventModStart==1)event_getPosByName(v);}
+	int command_alarm_select_time(String value) 		{if(ALS_wifiPtr_get()->_eventModStart==1)appi_event_select_set_times(value, 0);}
+	int command_alarm_select_duration(String value) 	{if(ALS_wifiPtr_get()->_eventModStart==1)appi_event_select_set_times(value, 1);}
+	int command_alarm_select_repeat(String value) 		{if(ALS_wifiPtr_get()->_eventModStart==1)appi_event_select_set_times(value, 2);}
+	int command_alarm_select_activate(String value) 	{if(ALS_wifiPtr_get()->_eventModStart==1)appi_event_select_activate();}	
+	// int command_alarm_select_setNextDay(String value) 	{appi_event_select_setNextDay();}	
+	int command_alarm_select_action(String value) 		{if(ALS_wifiPtr_get()->_eventModStart==1)appi_event_select_action(value);}	
+	int command_alarm_select_actionEffect(String value) {if(ALS_wifiPtr_get()->_eventModStart==1)appi_event_select_actionEffect(value);}	
 	requestCommandsLists requestEventCommandsList [] = {
 		{req_eventSelect,				&command_eventSelect,				"ALL", 			NULL, 	0},
 		{req_alarm_select_time,			&command_alarm_select_time,			"ALL", 			NULL, 	0},
@@ -1077,18 +1176,18 @@ void parse_general(){
 		{req_alarm_select_repeat,		&command_alarm_select_repeat,		"ALL", 			NULL, 	0},
 		{req_alarm_select_activate,		&command_alarm_select_activate,		"ALL", 			NULL, 	0},
 		{req_alarm_select_action,		&command_alarm_select_action,		"ALL", 			NULL, 	0},
+		{req_alarm_select_actionEffect, &command_alarm_select_actionEffect,	"ALL", 			NULL, 	0},
 	};
 
 uint8_t requestEventCommandsListCount = ARRAY_SIZE(requestEventCommandsList);
 // #endif
 
-
-
-
+void ALS_lampsettingLog_add(String op);
 void parse(String op, String value){
-
 	// Serial.printf("\n[parse]\n\t%s\n\t%s\n", op.c_str(), value.c_str());
 
+	ALS_lampsettingLog_add(op);
+	ALS_lampsettingPtr_get()->savRequiered_logCmd();
 
 	for (int i = 0; i < requestReponse_cnt; ++i)
 	{ 
@@ -1187,13 +1286,13 @@ void webserver_reponse_setup(){
 	requestReponse_mod_set(pos, 	requestType_wParam);
 	requestReponse_reponseMod(pos, 	requestReponseType_none);
 	requestReponse_parseMod(pos, 	requestParseCmd_fromList);
-	requestReponse_cmdList(pos, 	requestCommandsListCount, requestCommandsList);
+	requestReponse_cmdList(pos, 	requestCommandsLogListtCount, requestCommandsLogList);
 	pos = requestReponse_initialize("/httpRequest");
 	requestReponse_protocol(pos, 	requestProtocol_socket);
 	requestReponse_mod_set(pos, 	requestType_wParam);
 	requestReponse_reponseMod(pos, 	requestReponseType_none);
 	requestReponse_parseMod(pos, 	requestParseCmd_fromList);
-	requestReponse_cmdList(pos, 	requestCommandsListCount, requestCommandsList);
+	requestReponse_cmdList(pos, 	requestCommandsLogListtCount, requestCommandsLogList);
 
 	// pos = requestReponse_initialize("/settingJson");
 	// requestReponse_protocol(pos, 	requestProtocol_http);
@@ -1230,14 +1329,6 @@ void webserver_reponse_setup(){
 	requestReponse_parseMod(pos, 	requestParseCmd_fromFunc);
 	requestReponse_func(pos, 		parse_effect_choose);
 
-	// pos = requestReponse_initialize("/screen_initialize");
-	pos = requestReponse_initialize("/si");
-	requestReponse_protocol(pos, 	requestProtocol_udp);
-	requestReponse_mod_set(pos, 	requestType_wParam);
-	requestReponse_reponseMod(pos, 	requestReponseType_none);
-	requestReponse_parseMod(pos, 	requestParseCmd_fromFunc);
-	requestReponse_func(pos, 		parse_screen_initialize);
-
 	pos = requestReponse_initialize("/ge");
 	requestReponse_protocol(pos, 	requestProtocol_udp);
 	requestReponse_mod_set(pos, 	requestType_wParam);
@@ -1245,6 +1336,13 @@ void webserver_reponse_setup(){
 	requestReponse_parseMod(pos, 	requestParseCmd_fromList);
 	requestReponse_cmdList(pos, 	requestCommandsListCount, requestCommandsList);
 	requestReponse_funcReponse(pos,	parse_general);
+
+	pos = requestReponse_initialize("/si");
+	requestReponse_protocol(pos, 	requestProtocol_udp);
+	requestReponse_mod_set(pos, 	requestType_wParam);
+	requestReponse_reponseMod(pos, 	requestReponseType_none);
+	requestReponse_parseMod(pos, 	requestParseCmd_fromFunc);
+	requestReponse_func(pos, 		parse_screen_initialize);
 
 	pos = requestReponse_initialize("/ev");
 	requestReponse_protocol(pos, 	requestProtocol_udp);
@@ -1254,7 +1352,20 @@ void webserver_reponse_setup(){
 	requestReponse_cmdList(pos, 	requestEventCommandsListCount, requestEventCommandsList);
 	requestReponse_funcReponse(pos,	parse_event);
 
+	// pos = requestReponse_initialize("/log");
+	// requestReponse_protocol(pos, 	requestProtocol_udp);
+	// requestReponse_mod_set(pos, 	requestType_wParam);
+	// requestReponse_reponseMod(pos, 	requestReponseType_fromFunc);
+	// requestReponse_parseMod(pos, 	requestParseCmd_fromList);
+	// requestReponse_cmdList(pos, 	requestCommandsListCount, requestCommandsLogList);
 
+	pos = requestReponse_initialize("/wi");
+	requestReponse_protocol(pos, 	requestProtocol_udp);
+	requestReponse_mod_set(pos, 	requestType_wParam);
+	requestReponse_reponseMod(pos, 	requestReponseType_fromFunc);
+	requestReponse_parseMod(pos, 	requestParseCmd_fromList);
+	requestReponse_cmdList(pos, 	requestEventCommandsListWifiCount, requestEventCommandsListWifi);
+	requestReponse_funcReponse(pos,	parse_wifi);
 
 }
 
@@ -1637,4 +1748,111 @@ void lampPeripherals::oled_clear(){
 }
 void lampPeripherals::Tft9341_ceate(){
 
+}
+
+
+
+// ALS_lampsettingLog * ALS_lampsettingLogPtr;
+// ALS_lampsettingLog * ALS_lampsettingLogPtr_get(){return ALS_lampsettingLogPtr;}
+ALS_lampsettingLog * ALS_lampsettingLogArray[20];
+int ALS_lampsettingLogArrayPos = 0 ;
+ALS_lampsettingLog::ALS_lampsettingLog(String op){
+	// ALS_lampsettingLogPtr = this;
+	_op 	= op;
+}
+ALS_lampsettingLog::ALS_lampsettingLog(String op, int cnt){
+	// ALS_lampsettingLogPtr = this;
+	_op 	= op;
+	_cnt 	= cnt;
+}
+void ALS_lampsettingLog_add(String op){
+	if(ALS_lampsettingLogArrayPos == 0) {
+		ALS_lampsettingLogArray[0] = new ALS_lampsettingLog(op);
+		ALS_lampsettingLogArrayPos++;
+	}	else {
+		boolean find = false;
+		for (int i = 0; i < ALS_lampsettingLogArrayPos; ++i) {
+			if (ALS_lampsettingLogArray[i]->_op == op) {
+				ALS_lampsettingLogArray[i]->_cnt = ALS_lampsettingLogArray[i]->_cnt + 1;
+				find = true;
+				break;
+			}
+		}
+		if (!find) {
+			ALS_lampsettingLogArray[ALS_lampsettingLogArrayPos] = new ALS_lampsettingLog(op);
+			ALS_lampsettingLogArrayPos++;			
+		}
+	}
+}
+
+String ALS_lampsettingLog_date = "";
+void ALS_lampsettingLogDate_set(){
+	ALS_lampsettingLog_date = String(day()) + "_" + String(month()) + "_" + String(year());
+}
+// void ALS_lampsettingLog_html(String & ret){
+
+// 	for (int i = 0; i < ALS_lampsettingLogArrayPos; ++i) {
+// 		ret += "<p style=\"margin-left: 40px;\">" + ALS_lampsettingLogArray[i]->_op + " : " + String(ALS_lampsettingLogArray[i]->_cnt) + "</p>";
+// 	}	
+// }
+void ALS_lampsettingLog_print(){
+
+	String line = "";
+
+	// DynamicJsonDocument json(serializeSize);
+	// JsonObject root = json.to<JsonObject>();
+
+	String fileName = String(day()) + "_" + 	String(month()) + "_" + String(year());
+	if (fileName != ALS_lampsettingLog_date) {
+		for (int i = 0; i < ALS_lampsettingLogArrayPos; ++i) {
+			ALS_lampsettingLogArray[i]->_cnt = 0;
+		}	
+		ALS_lampsettingLog_date = fileName;
+	}
+
+    File file = SPIFFS.open("/logcmd/"+ALS_lampsettingLog_date+".txt", "w");
+    if (!file) {
+		return;	
+    }
+	for (int i = 0; i < ALS_lampsettingLogArrayPos; ++i) {
+		file.println(ALS_lampsettingLogArray[i]->_op+";"+String(ALS_lampsettingLogArray[i]->_cnt));
+	}	
+	file.close();
+}
+
+void ALS_lampsettingLog_restore(){
+
+	fsprintf("\n[ALS_lampsettingLog_restore]\n");
+
+	String line = "";
+
+	char buff[200];
+
+	ALS_lampsettingLogDate_set();
+
+	fsprintf("[ALS_lampsettingLog_date] : %s\n", ALS_lampsettingLog_date.c_str());
+
+    File file = SPIFFS.open("/logcmd/"+ALS_lampsettingLog_date+".txt", "r");
+    if (!file) {
+		return;	
+    }
+
+	String xml;
+	String a[2];
+	while (file.position()<file.size()) {
+		line = file.readStringUntil('\n');
+		if (line != "") {
+  			explode(line, ';', a); 	
+			ALS_lampsettingLogArray[ALS_lampsettingLogArrayPos] = new ALS_lampsettingLog(a[0], a[1].toInt());
+			ALS_lampsettingLogArrayPos++;	
+		}   
+	}
+	file.close();
+	for (int i = 0; i < ALS_lampsettingLogArrayPos; ++i) {
+		sprintf(buff, "\t[%15s][%-5d]\n", 
+			ALS_lampsettingLogArray[i]->_op.c_str(), 
+			ALS_lampsettingLogArray[i]->_cnt
+		);
+		Serial.print(buff);
+	}		
 }

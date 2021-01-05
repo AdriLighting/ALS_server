@@ -34,29 +34,69 @@ void 	ALS_wifi::_otaEnabled_set 	(boolean ret)	{ _otaEnabled = ret;}
 
 boolean ALS_wifi::_setup(WIFICONNECT_MOD cMod, WIFICONNECTSSID_MOD sMod) {
 
-	if (!wifi_credential_sta_fromSPIFF()) return false;
+	if (!wifi_credential_sta_fromSPIFF()){
+		wifi_credential_set(
+			0, 	
+			"",		
+			"", 	
+			"",
+			"",
+			""
+		);
+		wifi_credential_sta_toSpiff(); 
+		return false;
+	}
 	// wifi_credential_sta_print();
 
-	load_fromSpiif 				();
+	
 	credential_sta_pos_set 		(0);
 	connect_set 				(cMod);
 	connectSSID_set 			(sMod);
 	station_set 				(WIFI_STA);
 	hostName_set 				(_hostname);
 	setup_id					();
-	// print_cfg 					();
+	print_cfg 					();
 
 	// if (!_ap->load_fromSpiif()) {
 	wifi_credentialAp_ptr_get()->hostname_set(ch_toString(_hostname));
 	wifi_credentialAp_ptr_get()->psk_set("rgbw1234");
-	if (_credential_sta->ip_get() == "") 	{wifi_credentialAp_ptr_get()->ip_set("192.168.4.1");}
-	else 									{wifi_credentialAp_ptr_get()->ip_set(_credential_sta->ip_get());}
-	// }
+	wifi_credentialAp_ptr_get()->ip_set("192.168.4.1");
 	// wifi_credentialAp_ptr_get()->print();
 	return true;
 }
+boolean ALS_wifi::_setupFromSpiff() {
+	String s;
+	if (!wifi_credential_sta_fromSPIFF()){
+		wifi_credential_set(
+			0, 	
+			"",		
+			"", 	
+			"",
+			"",
+			""
+		);
+		wifi_credential_sta_toSpiff(); 
+	}	
+	if (!wifiConnect_load_fromSPIFF(s))				return false;
+	if (literal_value("connectSSID", s) == "ap") 	return false;
+	if (!_setup(AWC_LOOP, AWCS_NORMAL)) 			return false;
 
-boolean ALS_wifi::_connect(WIFICONNECT_MOD cMod, WIFICONNECTSSID_MOD sMod) {
+	return true;
+}
+boolean ALS_wifi::_setupAp(WIFICONNECT_MOD cMod, WIFICONNECTSSID_MOD sMod) {
+
+	credential_sta_pos_set 		(0);
+	connect_set 				(cMod);
+	connectSSID_set 			(sMod);
+	station_set 				(WIFI_STA);
+	hostName_set 				(_hostname);
+	setup_id();
+	wifi_credentialAp_ptr_get()->hostname_set(ch_toString(_hostname));
+	wifi_credentialAp_ptr_get()->psk_set("rgbw1234");
+	wifi_credentialAp_ptr_get()->ip_set("192.168.4.1");
+	return true;
+}
+boolean ALS_wifi::_connect(WIFICONNECT_MOD cMod) {
 
 	lampPeripheralsInstance()->oled_clear();
 	lampPeripheralsInstance()->wificonnect("Connect ALS_wifi en cour");
@@ -87,7 +127,23 @@ boolean ALS_wifi::_connect(WIFICONNECT_MOD cMod, WIFICONNECTSSID_MOD sMod) {
 		_connectMod_setTo 	= 2;
 	}
 }
-	
+boolean ALS_wifi::_connectFromSpiff() {
+
+	lampPeripheralsInstance()->oled_clear();
+	lampPeripheralsInstance()->wificonnect("Connect ALS_wifi en cour");
+	String s;
+	WIFICONNECTSSID_MOD_toString(_connectSSID, s);
+	fsprintf("DEBUG:%s\n",s.c_str());
+	WIFICONNECT_MOD_toString(wifiConnect_instance()->_connect, s);
+	fsprintf("DEBUG:%s\n",s.c_str());
+	_connect(wifiConnect_instance()->_connect);
+	if (_connectSSID==AWCS_AP) {
+
+	} else {
+
+	}
+}
+
 void ALS_wifi::_loop() {
 	if ( _connectModTimer->isActivate() ) {
 		if ( _connectModTimer->loop_stop() ) {
@@ -153,14 +209,17 @@ void ALS_wifi::_checkConnected_loop(){
 		   	
 		   	String timeStr;
 		   	ntpTime_getTime(timeStr);
-
+		   	int wD, sMon, sYear;
+		   	adri_timeNtp_instance()->dateGet(wD, sMon, sYear);
+		   	String timeStamp = String(wD)+"/"+String(sMon)+"/"+String(sYear)+"_"+timeStr;
+		   	
 			sprintf(buffer, "[_checkConnected_loop] begin: %d - result: %d", check, result);
 
 			fsprintf("\n%s\n", buffer);
 
 			String logStr = "";
 			adri_toolsPtr_get()->log_read(logStr, false);
-			adri_toolsPtr_get()->log_write(logStr, timeStr, String(buffer));		
+			adri_toolsPtr_get()->log_write(logStr, timeStamp, String(buffer));		
 					
 			ESP.restart();
 					

@@ -54,7 +54,7 @@
 			void eventsDetail_jsonObject(String name, JsonObject & object);
 			boolean eventsDetails_jsonObject(int sSelect, JsonObject & objectId);
 			int event_getPosByName(String name);
-			extern int envent_setup_ready;
+			extern boolean envent_setup_ready;
 			extern int appi_event_select;
 
 			void appi_event_select_set_times(String Value, int mod);
@@ -62,7 +62,7 @@
 			void appi_event_select_setNextDay();
 
 
-			typedef void (*alarmClock_func)();  
+			typedef void (*alarmClock_func)(String opt);  
 
 			struct alarmClock_action
 			{
@@ -78,6 +78,7 @@
 			public:
 				calendar *	_event;
 				int 		_pos 		= 1;
+				String 		_option_1	= "Color";
 
 				alarmClock(int pos);
 				~alarmClock(){};
@@ -89,5 +90,10 @@
 				
 			};
 
-			void appi_event_select_action(int value);
+			void appi_event_select_action(String value);
+			void appi_event_select_actionEffect(String value);
+			void events_jsonFile();
+
+
+			void appi_events_print(String & ret);
 #endif
