@@ -10,6 +10,7 @@
 #include <ALS_server.h>
 #include <adri_tools.h>
 
+// LIST
 PROGMEM chooseEffectList chooseEffect [] = { 
 	{chooseEffect_color},
     {chooseEffect_noise},
