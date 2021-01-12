@@ -55,11 +55,13 @@
 		}
 		void udpMulti_send(String msg){
 			if (ALS_udpMulti==nullptr) return;
+
 		    String hostname;
 		    ALS_wifiPtr_get()->_hostname_get(hostname);
 
-	Serial.printf("\n[udpMulti_send]\n\tme: %s\n%s\n",
-	 hostname.c_str(), msg.c_str());
+			// Serial.printf("\n[udpMulti_send]\n\tme: %s\n%s\n",
+			// 	hostname.c_str(), msg.c_str()
+			// );
 
 			String host = literal_item("host", 	hostname);
 			String from	= literal_item("from", 	"server");
