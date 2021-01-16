@@ -218,7 +218,7 @@
 		    WiFi.setPhyMode(WIFI_PHY_MODE_11B);
 		    wifi_set_sleep_type(NONE_SLEEP_T);
 
-		    boolean _fsok = SPIFFS.begin();
+		    boolean _fsok = LittleFS.begin();
 
 			_timerEventSetup 	= new adri_timer(5000, "", false);
 

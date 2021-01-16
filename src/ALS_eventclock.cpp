@@ -251,7 +251,7 @@ boolean events_fromJson(){
 	DynamicJsonDocument buff(4500);
 	DeserializationError err;
 
-    File file = SPIFFS.open("/json/events.json", "r");
+    File file = LittleFS.open("/json/events.json", "r");
     if (file) {
     	// fsprintf("\n[events_fromJson]\n");
     	err = deserializeJson(buff, file);
@@ -385,7 +385,7 @@ void events_jsonFile(String & result) {
 	serializeJson(json, result);
 }
 void events_jsonFile() {
-    File file = SPIFFS.open("/json/events.json", "w");
+    File file = LittleFS.open("/json/events.json", "w");
     if (file) {
 		DynamicJsonDocument json(serializeSize);
 		JsonObject 	root 	= json.to<JsonObject>();
@@ -485,7 +485,7 @@ boolean eventsDetails_jsonObject(int sSelect, JsonObject & objectId) {
 	return true;	
 }
 String eventsDetails_jsonFile() {
-    File file = SPIFFS.open("/json/eventsDetails.json", "w");
+    File file = LittleFS.open("/json/eventsDetails.json", "w");
     if (file) {
 		DynamicJsonDocument json(serializeSize);
 		JsonObject 	root 		= json.to<JsonObject>();

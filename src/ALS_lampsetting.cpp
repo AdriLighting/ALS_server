@@ -170,7 +170,7 @@ void programmSetting::patternLoopValue_loadFromJson(){
 		fsprintf("\n[programmSetting::patternLoopValue_load]\n");
 	#endif
 
-        File file = SPIFFS.open("/json/currentSetting.json", "r");
+        File file = LittleFS.open("/json/currentSetting.json", "r");
         if (file) {
             DynamicJsonDocument buff(serializeSize);
             DeserializationError err = deserializeJson(buff, file);
@@ -328,7 +328,7 @@ void ALS_lampsetting::currentSetting_jsonFile(){
 	#ifdef DEBUG
 		fsprintf("\n[lampSetting::currentSetting_jsonFile To SPIFF]\n");
 	#endif
-    File file = SPIFFS.open("/json/currentSetting.json", "w");
+    File file = LittleFS.open("/json/currentSetting.json", "w");
     if (file) {
 
 		DynamicJsonDocument json(2000);
@@ -411,7 +411,7 @@ void ALS_lampsetting::patternList_jsonFile() {
 	#ifdef DEBUG
 		fsprintf("\n[lampSetting::patternList_jsonFile]\n");
 	#endif
-    File file = SPIFFS.open("/json/patternList.json", "w");
+    File file = LittleFS.open("/json/patternList.json", "w");
     if (file) {
 		DynamicJsonDocument json(10000);
 		JsonObject root = json.to<JsonObject>();
@@ -439,7 +439,7 @@ void ALS_lampsetting::playList_jsonFile() {
 	#ifdef DEBUG
 		fsprintf("\n[lampSetting::playList_jsonFile]\n");
 	#endif
-    File file = SPIFFS.open("/json/playList.json", "w");
+    File file = LittleFS.open("/json/playList.json", "w");
     if (file) {
 		DynamicJsonDocument json(serializeSize);
 		JsonObject root = json.to<JsonObject>();
@@ -764,7 +764,7 @@ void ALS_lampUpdateClient::lampStartLed(){
 
 
 
-    File file = SPIFFS.open("/json/currentSetting.json", "r");
+    File file = LittleFS.open("/json/currentSetting.json", "r");
     if (file) {
     	#ifdef DEBUG
 			fsprintf("\n[lampUpdateClient::lampStartLed] file open\n");
@@ -1033,7 +1033,7 @@ int command_json(String value){
 }
 int command_log(String value){
 	if (value=="remove") {
-		SPIFFS.remove("/log.txt");
+		LittleFS.remove("/log.txt");
 		String result;
 		adri_toolsPtr_get()->log_read(result, true);		
 	}	
@@ -1059,7 +1059,7 @@ int command_logAdd(String value){
 
 int command_event(String value){
 	if (value=="print") {
-	    File file = SPIFFS.open("/temp.txt", "w");
+	    File file = LittleFS.open("/temp.txt", "w");
 	    if (file) {
 	    	String rep;
 	    	appi_events_print(rep);
@@ -1810,7 +1810,7 @@ void ALS_lampsettingLog_print(){
 		ALS_lampsettingLog_date = fileName;
 	}
 
-    File file = SPIFFS.open("/logcmd/"+ALS_lampsettingLog_date+".txt", "w");
+    File file = LittleFS.open("/logcmd/"+ALS_lampsettingLog_date+".txt", "w");
     if (!file) {
 		return;	
     }
@@ -1832,7 +1832,7 @@ void ALS_lampsettingLog_restore(){
 
 	fsprintf("[ALS_lampsettingLog_date] : %s\n", ALS_lampsettingLog_date.c_str());
 
-    File file = SPIFFS.open("/logcmd/"+ALS_lampsettingLog_date+".txt", "r");
+    File file = LittleFS.open("/logcmd/"+ALS_lampsettingLog_date+".txt", "r");
     if (!file) {
 		return;	
     }
