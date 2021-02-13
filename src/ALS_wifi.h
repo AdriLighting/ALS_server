@@ -13,6 +13,7 @@
 
 
 		#include <adri_timeNtp.h>
+		#include <adri_timer.h>
 
 	enum mod_wifiConnect_error
 	{
